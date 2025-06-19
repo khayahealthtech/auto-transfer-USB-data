@@ -17,8 +17,8 @@ import RPi.GPIO as GPIO
 
 
 venv_dir = "/home/khayahealthtech/khaya_ws/venv"
-DEST_FOLDER = "/home/khayahealthtech/khaya_ws/Data"
-source_name = "/home/khayahealthtech/khaya_ws/Data/KHAYA/khaya_usb_copy.py" 
+DEST_FOLDER = "/home/khayahealthtech/Data"
+source_name = "/home/khayahealthtech/Data/KHAYA/khaya_usb_copy.py" 
 
 ip_address = "8.8.8.8"  # Google's DNS
 

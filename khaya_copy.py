@@ -7,6 +7,7 @@ import logging
 import psutil
 import pyudev
 import time
+from datetime import date
 
 import venv
 
@@ -17,22 +18,24 @@ import RPi.GPIO as GPIO
 
 
 venv_dir = "/home/khayahealthtech/khaya_ws/venv"
-DEST_FOLDER = "/home/khayahealthtech/Data"
-source_name = "/home/khayahealthtech/Data/KHAYA/khaya_usb_copy.py" 
+DEST_FOLDER = "./khaya_ws/Patient_Data"
+patient_data = "./khaya_ws/Patient_Data/KHAYA1/khaya_usb_copy.py" 
 
 ip_address = "8.8.8.8"  # Google's DNS
 
 bucket_name = "khaya-app-1.firebasestorage.app"
-patient_name = "Qhamani-Testing"
+device_name = "device-001"
+today = date.today().strftime('%Y%m%d')
 
 #find the mount poinyt for USB insertion
 mount_point = "/media/khayahealthtech/KHAYA"
 
 
+#start mode is standby, and will be updated
 mode =  "stand-by"
 
 
-#ini GPIOs  using BOARD numbering
+#init GPIOs  using BOARD numbering
 GPIO.setmode(GPIO.BCM)
 
 standby_LED = 15
@@ -48,15 +51,12 @@ GPIO.output(localCopy_LED, GPIO.LOW)
 GPIO.output(onlineCopy_LED, GPIO.LOW)
 
 time.sleep(3)
+
+
 # This will handle most of the UI operations
 
 def main():
 	monitor_usb()
-
-def create_venv():
-	builder = venv.EnvBuilder(with_pip=True)
-	builder.create(venv_dir)
-	print(f"Virtual environment created at {venv_dir}")
 
 def statusIndicator(mode):
 
@@ -74,6 +74,8 @@ def statusIndicator(mode):
 			print("Online Copy in Progress..")
 			GPIO.output(onlineCopy_LED, GPIO.HIGH)
 
+
+# Locate the KHAYA device once mounted
 def get_mounted_usb():
 	for partition in psutil.disk_partitions(all=True):
 		if "/media/khayahealthtech/KHAYA" in partition.mountpoint: # Adjust for different OS paths if needed
@@ -81,7 +83,10 @@ def get_mounted_usb():
 			return partition.mountpoint
 	return None
 
-#local copy of files
+
+
+# Performs Local copy of files by
+# using the mountpoint and the destination folder "Patient_Data"
 def copy_files(src, dst):
 	if not os.path.exists(dst):
 		os.makedirs(dst) #creating new folder if one doesn't exist
@@ -93,11 +98,11 @@ def copy_files(src, dst):
 
 			try:
 				shutil.copy2(src_path, dst_path)
-               # logging.info(f"Copied: {src_path} -> {dst_path}")
-				statusIndicator("local")
+				statusIndicator("local") # Progress Indicator via LED
 			except Exception as e:
 				print("failed")
-               # logging.error(f"Failed to copy {src_path}: {e}")
+				# Will need to show error on display
+
 
 
 # Entry point in the script
@@ -107,12 +112,13 @@ def monitor_usb():
 	# uses psutil to check through disk partitions 
 	if get_mounted_usb() == mount_point: 
 		backup_folder = os.path.join(DEST_FOLDER, os.path.basename(mount_point))
-		# logging.info(f"USB detected at {usb_path}, copying to {backup_folder}...")
 		copy_files(mount_point, backup_folder)
+
+
 		print("done copying locally")
 		GPIO.output(localCopy_LED, GPIO.LOW)
 
-		upload_to_cloud(bucket_name, source_name, patient_name);
+		upload_to_cloud(bucket_name, patient_data, patient_name);
 
    	#Then listens for USB insertions and copies data locally.
 	context = pyudev.Context()
@@ -143,7 +149,8 @@ def monitor_usb():
 				#Init uploading to gcloud
 				if(isDeviceOnline):
 					statusIndicator("online")
-					upload_to_cloud(bucket_name, source_name, patient_name);
+					patient_id = device_name + today
+					upload_to_cloud(bucket_name, patient_data, patient_id);
 
 					statusIndicator("stand-by")
 def isDeviceOnline():
